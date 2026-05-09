@@ -95,6 +95,7 @@ class ExportRequest(BaseModel):
     downsample: Annotated[int, Field(ge=1, le=2048)] = 16
     z_exaggeration: Annotated[float, Field(gt=0, le=100)] = 1.0
     base_thickness: Annotated[float, Field(ge=0, le=100_000)] = 1500.0
+    target_size_mm: Annotated[float, Field(ge=1, le=2000)] = 120.0
     selection_type: Annotated[str, Field(pattern="^(rectangle|circle|polygon)$")] = "rectangle"
     circle_center_lat: Annotated[Optional[float], Field(ge=-90, le=90)] = None
     circle_center_lon: Optional[float] = None
@@ -714,7 +715,7 @@ def export_request_info(request: ExportRequest) -> ExportInfo:
     else:
         reason = (
             f"Ready: {len(tiles)} local DEM tile(s), about {estimated_triangles:,} triangles, "
-            f"~{format_bytes(estimated_stl_bytes)} binary STL."
+            f"~{format_bytes(estimated_stl_bytes)} binary STL, max print side {request.target_size_mm:g} mm."
         )
         ok = True
 
@@ -1014,6 +1015,10 @@ def build_mesh(
     top_vertices = np.column_stack((xv[finite], yv[finite], z[finite]))
     bottom_vertices = np.column_stack((xv[finite], yv[finite], np.full(int(finite.sum()), -base_thickness)))
     vertices = np.vstack((top_vertices, bottom_vertices)).astype(np.float32)
+    xy_extent = np.ptp(vertices[:, :2], axis=0)
+    longest_xy = float(max(xy_extent))
+    if longest_xy > 0:
+        vertices *= np.float32(request.target_size_mm / longest_xy)
 
     valid_cells = finite[:-1, :-1] & finite[1:, :-1] & finite[:-1, 1:] & finite[1:, 1:]
     if not np.any(valid_cells):
@@ -1088,7 +1093,8 @@ def export_filename(request: ExportRequest) -> str:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     stem = (
         f"moon_{timestamp}_lat_{request.min_lat:.3f}_{request.max_lat:.3f}_"
-        f"lon_{request.min_lon:.3f}_{request.max_lon:.3f}_base_{request.base_thickness:.0f}"
+        f"lon_{request.min_lon:.3f}_{request.max_lon:.3f}_size_{request.target_size_mm:.0f}mm_"
+        f"base_{request.base_thickness:.0f}"
     ).replace("-", "m").replace(".", "p")
     return f"{stem}.stl"
 

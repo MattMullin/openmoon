@@ -79,12 +79,14 @@ const els = {
   downsample: document.getElementById("downsample"),
   zExaggeration: document.getElementById("zExaggeration"),
   baseThickness: document.getElementById("baseThickness"),
+  targetSizeMm: document.getElementById("targetSizeMm"),
   previewModal: document.getElementById("previewModal"),
   previewStatus: document.getElementById("previewStatus"),
   stlPreviewViewport: document.getElementById("stlPreviewViewport"),
   previewDownsample: document.getElementById("previewDownsample"),
   previewZExaggeration: document.getElementById("previewZExaggeration"),
   previewBaseThickness: document.getElementById("previewBaseThickness"),
+  previewTargetSizeMm: document.getElementById("previewTargetSizeMm"),
   closePreview: document.getElementById("closePreview"),
   refreshPreview: document.getElementById("refreshPreview"),
   downloadPreviewStl: document.getElementById("downloadPreviewStl"),
@@ -293,6 +295,7 @@ function requestPayload(overrides = {}) {
     downsample: Number(els.downsample.value || 16),
     z_exaggeration: Number(els.zExaggeration.value || 1),
     base_thickness: Number(els.baseThickness.value || 1500),
+    target_size_mm: Number(els.targetSizeMm.value || 120),
     selection_type: selectionMode,
     ...overrides,
   };
@@ -1848,11 +1851,13 @@ function syncPreviewInputsFromMain() {
   els.previewDownsample.value = String(Math.max(Number(els.downsample.value || 16), 48));
   els.previewZExaggeration.value = els.zExaggeration.value;
   els.previewBaseThickness.value = els.baseThickness.value;
+  els.previewTargetSizeMm.value = els.targetSizeMm.value;
 }
 
 function syncMainInputsFromPreview() {
   els.zExaggeration.value = els.previewZExaggeration.value;
   els.baseThickness.value = els.previewBaseThickness.value;
+  els.targetSizeMm.value = els.previewTargetSizeMm.value;
 }
 
 function previewPayload() {
@@ -1860,6 +1865,7 @@ function previewPayload() {
     downsample: Number(els.previewDownsample.value || 16),
     z_exaggeration: Number(els.previewZExaggeration.value || 1),
     base_thickness: Number(els.previewBaseThickness.value || 1500),
+    target_size_mm: Number(els.previewTargetSizeMm.value || 120),
   });
 }
 
@@ -2028,7 +2034,7 @@ async function generatePreview() {
     const previewTriangles = Number(response.headers.get("X-Open-Moon-Preview-Triangles"));
     const previewBytes = Number(response.headers.get("X-Open-Moon-Preview-Bytes"));
     previewBlob = await response.blob();
-    previewFilename = `open_moon_preview_${Date.now()}_base_${Math.round(payload.base_thickness)}.stl`;
+    previewFilename = `open_moon_preview_${Date.now()}_${Math.round(payload.target_size_mm)}mm_base_${Math.round(payload.base_thickness)}.stl`;
     await showPreviewBlob(previewBlob);
     if (generation !== previewGeneration) {
       clearPreviewMesh();
@@ -2209,10 +2215,11 @@ async function init() {
   els.downsample.addEventListener("change", validateSelection);
   els.zExaggeration.addEventListener("change", validateSelection);
   els.baseThickness.addEventListener("change", validateSelection);
+  els.targetSizeMm.addEventListener("change", validateSelection);
   els.closePreview.addEventListener("click", closePreviewModal);
   els.refreshPreview.addEventListener("click", generatePreview);
   els.downloadPreviewStl.addEventListener("click", exportStl);
-  [els.previewDownsample, els.previewZExaggeration, els.previewBaseThickness].forEach((input) => {
+  [els.previewDownsample, els.previewZExaggeration, els.previewBaseThickness, els.previewTargetSizeMm].forEach((input) => {
     input.addEventListener("change", generatePreview);
     input.addEventListener("input", schedulePreviewRegeneration);
   });

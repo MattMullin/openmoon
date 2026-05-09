@@ -57,6 +57,8 @@ http://localhost:8080
 10. Click `Download STL` in the preview modal, or `Export STL` from the main panel.
 11. The backend finds intersecting local `ldem_1024*.jp2` files, reads only intersecting raster windows, mosaics the selected area, masks circle/freeform selections to the chosen shape, applies `pixel_value * 0.5 - 1737400`, normalizes minimum height to zero, applies z exaggeration, adds a flat base plus side walls using `Base thickness (m)`, writes an STL into `backend/exports/`, and returns it as a download.
 
+`Max print size (mm)` scales the finished STL so its longest horizontal side opens at that size in slicer software. This does not reduce STL terrain resolution; `Downsample` controls the DEM sample spacing and triangle count.
+
 ## Imagery layers
 
 The app has three display modes:
@@ -177,6 +179,7 @@ Open Moon uses data and imagery from NASA Lunar Reconnaissance Orbiter, the LOLA
 - The backend does not load all DEM tiles at startup; it builds a filename index and opens only intersecting tiles during export.
 - Requests estimated above 5 million triangles are rejected. Increase `downsample` or select a smaller region.
 - STL exports are closed solids for 3D printing. `Base thickness (m)` is in the same source-scale units as the STL; after scaling the model in your slicer, the base thickness scales with the width and height.
+- `Max print size (mm)` pre-scales the exported STL to a printer-friendly size. For example, `120` makes the longest horizontal side 120 mm while preserving the same vertex/triangle resolution.
 - Circle and freeform exports are clipped from a rectangular DEM read window, then closed with side walls along the clipped boundary.
 - `/preview-stl` returns the same generated STL as a browser preview without writing it into `backend/exports/`; `/export-stl` writes the final downloaded file.
 - Longitude selections that cross `0` are represented with `min_lon > max_lon`; the backend splits them into `min..360` and `0..max` intervals.
