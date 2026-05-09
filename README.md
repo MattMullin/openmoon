@@ -111,6 +111,10 @@ http://localhost:8000/lola-xyz/{z}/{x}/{y}.jpg
 
 The app keeps Cesium in an eager-detail mode and prefetches high-detail LOLA tiles around the current camera view after navigation settles. Loading the entire Moon at maximum detail up front would require thousands of 512px tiles, so the practical path is local viewport prefetch plus the backend disk cache in `backend/tile_cache/`.
 
+## Acknowledgements
+
+Open Moon uses data and imagery from NASA Lunar Reconnaissance Orbiter, the LOLA instrument team, the LROC team, PDS Geosciences Node, USGS Astrogeology, and Arizona State University. Thanks also to Dr. Casey Handmer for help formatting the KML tile files used for local lunar browsing.
+
 ## Notes
 
 - Only files beginning with `ldem_1024` are indexed.
