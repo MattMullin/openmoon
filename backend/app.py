@@ -29,7 +29,7 @@ from tile_index import Tile, build_tile_index, find_intersecting_tiles, longitud
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 BACKEND_DIR = Path(__file__).resolve().parent
 DEM_DIR = PROJECT_DIR / "lola_dems"
-KML_DIR = PROJECT_DIR / "Lunar_DEM_LOLA_shaded_relief_1.52GB"
+KML_DIR = Path(os.environ.get("OPEN_MOON_KML_DIR", PROJECT_DIR / "Lunar_DEM_LOLA_shaded_relief_1.52GB"))
 OPTICAL_DIR = PROJECT_DIR / "LRO LROC"
 TOKEN_PATH = PROJECT_DIR / "cesium_key.txt"
 EXPORT_DIR = BACKEND_DIR / "exports"
@@ -159,6 +159,11 @@ def kml_root() -> dict[str, Optional[str]]:
     preferred = KML_DIR / "tiles_banded_stereo" / "LunarTopoRelief_banded_stereo.kml"
     if preferred.exists():
         rel = preferred.relative_to(KML_DIR).as_posix()
+        return {"url": public_url(f"/kml/{rel}")}
+
+    openmoon = KML_DIR / "tiles_banded_stereo" / "OpenMoon_LOLA_Relief.kml"
+    if openmoon.exists():
+        rel = openmoon.relative_to(KML_DIR).as_posix()
         return {"url": public_url(f"/kml/{rel}")}
 
     first = next(KML_DIR.rglob("*.kml"), None)

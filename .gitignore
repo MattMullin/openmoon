@@ -6,6 +6,7 @@ backend/dem_texture_cache/
 backend/optical_tile_cache/
 lola_dems/
 Lunar_DEM_LOLA_shaded_relief_1.52GB/
+Lunar_DEM_LOLA_shaded_relief_openmoon/
 LRO LROC/
 data/*.kmz
 archive/

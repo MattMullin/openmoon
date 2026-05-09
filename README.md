@@ -111,6 +111,61 @@ http://localhost:8000/lola-xyz/{z}/{x}/{y}.jpg
 
 The app keeps Cesium in an eager-detail mode and prefetches high-detail LOLA tiles around the current camera view after navigation settles. Loading the entire Moon at maximum detail up front would require thousands of 512px tiles, so the practical path is local viewport prefetch plus the backend disk cache in `backend/tile_cache/`.
 
+### Render your own LOLA KML relief pyramid
+
+If you want a fresh Open Moon-generated KML/JPG relief pyramid from your local `lola_dems/` JP2 files, use:
+
+```powershell
+python scripts/render_lola_kml_pyramid.py --dry-run
+```
+
+That prints the planned tile count and approximate JPG footprint without rendering. A starter render is:
+
+```powershell
+python scripts/render_lola_kml_pyramid.py --max-level 5 --workers 4 --skip-existing
+```
+
+The output goes to:
+
+```text
+Lunar_DEM_LOLA_shaded_relief_openmoon/tiles_banded_stereo/OpenMoon_LOLA_Relief.kml
+```
+
+Higher `--max-level` values add more zoom detail but grow quickly:
+
+```text
+level 5:  2,730 tiles
+level 6: 10,922 tiles
+level 7: 43,690 tiles
+level 8: 174,762 tiles
+```
+
+Use `--skip-existing` to resume an interrupted render. Useful knobs:
+
+```powershell
+python scripts/render_lola_kml_pyramid.py `
+  --max-level 7 `
+  --tile-size 512 `
+  --style relief `
+  --quality 90 `
+  --workers 4 `
+  --skip-existing
+```
+
+To make the backend mount this generated pyramid instead of the provided one, start the backend with:
+
+```powershell
+$env:OPEN_MOON_KML_DIR="C:\Users\matwm\Documents\moon_mold\Lunar_DEM_LOLA_shaded_relief_openmoon"
+cd backend
+uvicorn app:app --reload --port 8000
+```
+
+The renderer uses the same LOLA elevation scaling as STL export:
+
+```text
+height_m = pixel_value * 0.5 - 1737400
+```
+
 ## Acknowledgements
 
 Open Moon uses data and imagery from NASA Lunar Reconnaissance Orbiter, the LOLA instrument team, the LROC team, PDS Geosciences Node, USGS Astrogeology, and Arizona State University. Thanks also to Dr. Casey Handmer for help formatting the KML tile files used for local lunar browsing.
