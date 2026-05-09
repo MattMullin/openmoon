@@ -38,6 +38,7 @@ OPTICAL_TILE_CACHE_DIR = BACKEND_DIR / "optical_tile_cache"
 MOON_RADIUS_M = 1_737_400.0
 LOLA_PIXELS_PER_DEGREE = 1024
 MAX_TRIANGLES = 5_000_000
+MAX_PREVIEW_TRIANGLES = 500_000
 
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 TILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -1012,6 +1013,24 @@ def mesh_from_request(request: ExportRequest) -> trimesh.Trimesh:
 @app.post("/preview-stl")
 def preview_stl(request: ExportRequest) -> Response:
     try:
+        intervals = longitude_intervals(request.min_lon, request.max_lon)
+        estimated_height, estimated_width = estimate_shape(
+            request.min_lat,
+            request.max_lat,
+            intervals,
+            request.downsample,
+        )
+        estimated_triangles = estimate_solid_triangles(estimated_height, estimated_width)
+        if estimated_triangles > MAX_PREVIEW_TRIANGLES:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    f"Preview would contain about {estimated_triangles:,} triangles. "
+                    "Increase Simplification in the preview, or select a smaller area. "
+                    "The final STL export can still use a higher-resolution setting."
+                ),
+            )
+
         mesh = mesh_from_request(request)
         data = mesh.export(file_type="stl")
         if isinstance(data, str):

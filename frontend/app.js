@@ -1764,7 +1764,7 @@ function parseFilename(response) {
 }
 
 function syncPreviewInputsFromMain() {
-  els.previewDownsample.value = els.downsample.value;
+  els.previewDownsample.value = String(Math.max(Number(els.downsample.value || 16), 48));
   els.previewZExaggeration.value = els.zExaggeration.value;
   els.previewBaseThickness.value = els.baseThickness.value;
 }
@@ -1960,7 +1960,7 @@ async function generatePreview() {
     els.downloadPreviewStl.disabled = true;
     const message =
       error instanceof TypeError && /fetch/i.test(error.message)
-        ? "Preview request lost connection to the backend. Try Refresh Preview; if it repeats, increase Downsample or select a smaller area."
+        ? "Preview request lost connection to the backend. Increase Simplification in this preview, or select a smaller area. The final STL export can still use higher resolution."
         : error.message;
     setPreviewStatus(message, true);
   } finally {
