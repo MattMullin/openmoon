@@ -1,0 +1,14 @@
+openmoon.app {
+	encode zstd gzip
+
+	request_body {
+		max_size 200MB
+	}
+
+	reverse_proxy openmoon:8000 {
+		transport http {
+			read_timeout 30m
+			write_timeout 30m
+		}
+	}
+}

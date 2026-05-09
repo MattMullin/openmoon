@@ -1,0 +1,41 @@
+version: "3.7"
+
+services:
+  openmoon:
+    build: .
+    restart: unless-stopped
+    environment:
+      OPEN_MOON_PUBLIC_URL: https://openmoon.app
+      OPEN_MOON_CORS_ORIGINS: https://openmoon.app
+    volumes:
+      - ./cesium_key.txt:/app/cesium_key.txt:ro
+      - ./lola_dems:/app/lola_dems:ro
+      - ./Lunar_DEM_LOLA_shaded_relief_1.52GB:/app/Lunar_DEM_LOLA_shaded_relief_1.52GB:ro
+      - ./LRO LROC:/app/LRO LROC:ro
+      - openmoon_exports:/app/backend/exports
+      - openmoon_previews:/app/backend/preview_cache
+      - openmoon_tile_cache:/app/backend/tile_cache
+      - openmoon_dem_texture_cache:/app/backend/dem_texture_cache
+      - openmoon_optical_tile_cache:/app/backend/optical_tile_cache
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    depends_on:
+      - openmoon
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  openmoon_exports:
+  openmoon_previews:
+  openmoon_tile_cache:
+  openmoon_dem_texture_cache:
+  openmoon_optical_tile_cache:
+  caddy_data:
+  caddy_config:

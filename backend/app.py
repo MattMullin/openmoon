@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -36,6 +37,7 @@ PREVIEW_DIR = BACKEND_DIR / "preview_cache"
 TILE_CACHE_DIR = BACKEND_DIR / "tile_cache"
 DEM_TEXTURE_CACHE_DIR = BACKEND_DIR / "dem_texture_cache"
 OPTICAL_TILE_CACHE_DIR = BACKEND_DIR / "optical_tile_cache"
+FRONTEND_DIR = PROJECT_DIR / "frontend"
 
 MOON_RADIUS_M = 1_737_400.0
 LOLA_PIXELS_PER_DEGREE = 1024
@@ -48,11 +50,21 @@ TILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 DEM_TEXTURE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 OPTICAL_TILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+PUBLIC_URL = os.environ.get("OPEN_MOON_PUBLIC_URL", "http://localhost:8000").rstrip("/")
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        "OPEN_MOON_CORS_ORIGINS",
+        "http://localhost:8080,http://127.0.0.1:8080",
+    ).split(",")
+    if origin.strip()
+]
+
 app = FastAPI(title="Open Moon STL Export")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://127.0.0.1:8080"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
@@ -64,6 +76,10 @@ if KML_DIR.exists():
 TILES = build_tile_index(DEM_DIR)
 
 Image.MAX_IMAGE_PIXELS = None
+
+
+def public_url(path: str) -> str:
+    return f"{PUBLIC_URL}{path}"
 
 
 class ShapePoint(BaseModel):
@@ -143,12 +159,12 @@ def kml_root() -> dict[str, Optional[str]]:
     preferred = KML_DIR / "tiles_banded_stereo" / "LunarTopoRelief_banded_stereo.kml"
     if preferred.exists():
         rel = preferred.relative_to(KML_DIR).as_posix()
-        return {"url": f"http://localhost:8000/kml/{rel}"}
+        return {"url": public_url(f"/kml/{rel}")}
 
     first = next(KML_DIR.rglob("*.kml"), None)
     if first:
         rel = first.relative_to(KML_DIR).as_posix()
-        return {"url": f"http://localhost:8000/kml/{rel}"}
+        return {"url": public_url(f"/kml/{rel}")}
 
     return {"url": None}
 
@@ -158,7 +174,7 @@ def preview_image() -> dict[str, Optional[str]]:
     preview = KML_DIR / "tiles_banded_stereo" / "0" / "0" / "0.jpg"
     if preview.exists():
         rel = preview.relative_to(KML_DIR).as_posix()
-        return {"url": f"http://localhost:8000/kml/{rel}"}
+        return {"url": public_url(f"/kml/{rel}")}
     return {"url": None}
 
 
@@ -1147,3 +1163,7 @@ def export_stl(request: ExportRequest) -> FileResponse:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Export failed: {type(exc).__name__}: {exc}") from exc
+
+
+if FRONTEND_DIR.exists():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

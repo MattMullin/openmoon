@@ -130,9 +130,39 @@ Open Moon uses data and imagery from NASA Lunar Reconnaissance Orbiter, the LOLA
 
 The repo should keep app code, README, and small generated metadata such as `frontend/landmarks.json`. Do not commit local tokens, exported STL files, caches, JP2 DEM tiles, KML/JPG pyramids, or the LROC GeoTIFF mosaic.
 
-A practical deployment path is:
+### Deploy to `openmoon.app`
 
-1. Keep the current app as a local desktop tool while the DEM and imagery datasets remain on disk.
-2. Push this repository to GitHub for code backup and issue tracking.
-3. Later, package the backend as a local installer or Docker image that mounts user-provided data folders.
-4. For public web deployment, convert the huge local imagery/DEM datasets to cloud-hosted tiled assets and keep STL export behind a worker queue.
+Open Moon is not a static-only app: STL export, LOLA DEM reads, LROC/LOLA tile serving, previews, and caches all run through FastAPI. The recommended first public deployment is a VPS with Docker Compose and the data folders mounted on disk.
+
+On the server, install Docker and clone the repo:
+
+```bash
+git clone https://github.com/MattMullin/openmoon.git
+cd openmoon
+```
+
+Copy or mount these private data folders/files at the repo root on the server:
+
+```text
+cesium_key.txt
+lola_dems/
+Lunar_DEM_LOLA_shaded_relief_1.52GB/
+LRO LROC/
+```
+
+Point the domain DNS to the VPS:
+
+```text
+A     openmoon.app      <server IPv4>
+AAAA  openmoon.app      <server IPv6, optional>
+```
+
+Then start the app:
+
+```bash
+docker compose up -d --build
+```
+
+Caddy listens on ports `80` and `443`, obtains TLS certificates automatically, and proxies `https://openmoon.app` to the Open Moon FastAPI app. The FastAPI app serves both the frontend and the API on the same origin in production.
+
+For large public use, the next step after the VPS MVP is moving imagery tiles to object storage/CDN and running STL generation behind a worker queue so large exports do not tie up web requests.
