@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Open Moon Terrain Export</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/cesium@1.119.0/Build/Cesium/Widgets/widgets.css"
+    />
+    <link rel="stylesheet" href="./styles.css?v=gazetteer-scale-1" />
+  </head>
+  <body>
+    <main id="app">
+      <div id="cesiumContainer" aria-label="Cesium Moon viewer"></div>
+
+      <section class="panel" aria-label="Terrain export controls">
+        <header class="panel__header">
+          <div>
+            <h1>Open Moon</h1>
+            <p id="tokenStatus">Loading Cesium token...</p>
+          </div>
+          <span id="kmlStatus" class="status-pill">Texture pending</span>
+        </header>
+
+        <div class="bounds-grid" aria-live="polite">
+          <div>
+            <span>minLat</span>
+            <strong id="minLat">--</strong>
+          </div>
+          <div>
+            <span>maxLat</span>
+            <strong id="maxLat">--</strong>
+          </div>
+          <div>
+            <span>minLon</span>
+            <strong id="minLon">--</strong>
+          </div>
+          <div>
+            <span>maxLon</span>
+            <strong id="maxLon">--</strong>
+          </div>
+          <div>
+            <span>LOLA minLon</span>
+            <strong id="lolaMinLon">--</strong>
+          </div>
+          <div>
+            <span>LOLA maxLon</span>
+            <strong id="lolaMaxLon">--</strong>
+          </div>
+        </div>
+
+        <div class="mode-row" aria-label="Selection mode">
+          <button id="modeRectangle" type="button" class="is-active">Rectangle</button>
+          <button id="modeCircle" type="button">Circle</button>
+          <button id="modePolygon" type="button">Freeform</button>
+        </div>
+
+        <div class="layer-row" aria-label="Moon imagery layer">
+          <button id="layerOptical" type="button">Optical</button>
+          <button id="layerHybrid" type="button" class="is-active">Hybrid</button>
+          <button id="layerRelief" type="button">Relief</button>
+        </div>
+
+        <div class="landmark-row" aria-label="Areas of interest">
+          <label>
+            <span>Category</span>
+            <select id="landmarkCategory">
+              <option value="Featured">Featured</option>
+              <option value="Apollo">Apollo</option>
+              <option value="Artemis">Artemis</option>
+              <option value="Crater">Craters</option>
+              <option value="Mare">Maria</option>
+              <option value="Mountain">Mountains</option>
+              <option value="Geologic feature">Geologic</option>
+              <option value="Mission feature">Mission</option>
+              <option value="All">All</option>
+            </select>
+          </label>
+          <label>
+            <span>Area of interest</span>
+            <select id="landmarkSelect">
+              <option value="">Fly to landmark...</option>
+            </select>
+          </label>
+          <button id="toggleLandmarks" type="button" class="is-active">Marks</button>
+        </div>
+
+        <div class="settings-row">
+          <label>
+            <span>Downsample</span>
+            <input id="downsample" type="number" min="1" max="512" step="1" value="16" />
+          </label>
+          <label>
+            <span>Z exaggeration</span>
+            <input id="zExaggeration" type="number" min="0.01" max="100" step="0.25" value="1" />
+          </label>
+          <label>
+            <span>Base thickness (m)</span>
+            <input id="baseThickness" type="number" min="0" max="100000" step="100" value="1500" />
+          </label>
+        </div>
+
+        <div class="button-row">
+          <button id="resetView" type="button">Reset View</button>
+          <button id="toggleDemTiles" type="button">DEM Tiles</button>
+          <button id="finishShape" type="button" disabled>Finish Shape</button>
+          <button id="clearSelection" type="button">Clear Selection</button>
+          <button id="previewStl" type="button" disabled>Preview STL</button>
+          <button id="exportStl" type="button" class="primary" disabled>Export STL</button>
+        </div>
+
+        <p id="message" class="message">Click two lunar surface points to define a rectangle.</p>
+      </section>
+
+      <div id="scaleBar" class="scale-bar" aria-label="Map scale">
+        <span id="scaleBarLabel">-- km</span>
+        <div id="scaleBarLine"></div>
+      </div>
+
+      <section id="previewModal" class="preview-modal" aria-label="STL export preview" aria-hidden="true">
+        <div class="preview-modal__backdrop"></div>
+        <div class="preview-modal__dialog">
+          <header class="preview-modal__header">
+            <div>
+              <h2>STL Preview</h2>
+              <p id="previewStatus">Generate a preview from the current selection.</p>
+            </div>
+            <button id="closePreview" type="button" class="icon-button" aria-label="Close STL preview">X</button>
+          </header>
+
+          <div id="stlPreviewViewport" class="preview-viewport"></div>
+
+          <div class="preview-controls">
+            <label>
+              <span>Simplification</span>
+              <input id="previewDownsample" type="number" min="1" max="2048" step="1" value="16" />
+            </label>
+            <label>
+              <span>Z exaggeration</span>
+              <input id="previewZExaggeration" type="number" min="0.01" max="100" step="0.25" value="1" />
+            </label>
+            <label>
+              <span>Thickness (m)</span>
+              <input id="previewBaseThickness" type="number" min="0" max="100000" step="100" value="1500" />
+            </label>
+          </div>
+
+          <div class="preview-actions">
+            <button id="refreshPreview" type="button">Refresh Preview</button>
+            <button id="downloadPreviewStl" type="button" class="primary">Download STL</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/cesium@1.119.0/Build/Cesium/Cesium.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module" src="./app.js?v=gazetteer-scale-1"></script>
+  </body>
+</html>
