@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/cesium@1.119.0/Build/Cesium/Widgets/widgets.css"
     />
-    <link rel="stylesheet" href="./styles.css?v=large-export-1" />
+    <link rel="stylesheet" href="./styles.css?v=credits-beta-1" />
   </head>
   <body>
     <main id="app">
@@ -17,7 +17,10 @@
       <section class="panel" aria-label="Terrain export controls">
         <header class="panel__header">
           <div>
-            <h1>Open Moon</h1>
+            <div class="title-row">
+              <h1>Open Moon</h1>
+              <span class="beta-badge">BETA</span>
+            </div>
             <p id="tokenStatus">Loading Cesium token...</p>
           </div>
           <span id="kmlStatus" class="status-pill">Texture pending</span>
@@ -124,6 +127,27 @@
           </div>
         </details>
 
+        <details class="credits-panel">
+          <summary>Data & Acknowledgements</summary>
+          <div class="credits-body">
+            <p>
+              Terrain export uses NASA LRO LOLA gridded DEM data from the
+              <a href="https://pds-geosciences.wustl.edu/missions/lro/lola.htm" target="_blank" rel="noopener">PDS Geosciences Node LOLA archive</a>.
+            </p>
+            <p>
+              Optical browsing uses the LRO LROC WAC global morphology mosaic, available through
+              <a href="https://astrogeology.usgs.gov/search/map/moon_lro_lroc_wac_global_morphology_mosaic_100m" target="_blank" rel="noopener">USGS Astrogeology</a>.
+            </p>
+            <p>
+              Landmark names come from the
+              <a href="https://www.usgs.gov/tools/gazetteer-planetary-nomenclature" target="_blank" rel="noopener">USGS/IAU Gazetteer of Planetary Nomenclature</a>.
+            </p>
+            <p>
+              Acknowledgements: NASA Lunar Reconnaissance Orbiter, the LOLA instrument team, the LROC team, PDS Geosciences Node, USGS Astrogeology, and Arizona State University.
+            </p>
+          </div>
+        </details>
+
         <p id="message" class="message">Click two lunar surface points to define a rectangle.</p>
       </section>
 
@@ -177,6 +201,6 @@
         }
       }
     </script>
-    <script type="module" src="./app.js?v=large-export-1"></script>
+    <script type="module" src="./app.js?v=credits-beta-1"></script>
   </body>
 </html>

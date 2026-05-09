@@ -75,6 +75,23 @@ h1 {
   font-weight: 720;
 }
 
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.beta-badge {
+  padding: 3px 6px;
+  border: 1px solid rgba(246, 211, 101, 0.48);
+  border-radius: 6px;
+  color: #fff5c8;
+  background: rgba(246, 211, 101, 0.12);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
 p {
   margin: 0;
 }
@@ -193,7 +210,8 @@ select {
   overflow: hidden;
 }
 
-.export-panel summary {
+.export-panel summary,
+.credits-panel summary {
   min-height: 42px;
   padding: 11px 12px;
   cursor: pointer;
@@ -202,22 +220,26 @@ select {
   list-style: none;
 }
 
-.export-panel summary::-webkit-details-marker {
+.export-panel summary::-webkit-details-marker,
+.credits-panel summary::-webkit-details-marker {
   display: none;
 }
 
-.export-panel summary::after {
+.export-panel summary::after,
+.credits-panel summary::after {
   content: "+";
   float: right;
   color: var(--accent-strong);
   font-weight: 720;
 }
 
-.export-panel[open] summary {
+.export-panel[open] summary,
+.credits-panel[open] summary {
   border-bottom: 1px solid rgba(255, 255, 255, 0.09);
 }
 
-.export-panel[open] summary::after {
+.export-panel[open] summary::after,
+.credits-panel[open] summary::after {
   content: "-";
 }
 
@@ -242,6 +264,32 @@ select {
 
 .export-actions {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.credits-panel {
+  margin-top: 14px;
+  border: 1px solid rgba(81, 214, 232, 0.16);
+  border-radius: 8px;
+  background: rgba(81, 214, 232, 0.045);
+  overflow: hidden;
+}
+
+.credits-body {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.credits-body a {
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+
+.credits-body a:hover {
+  text-decoration: underline;
 }
 
 .scale-bar {

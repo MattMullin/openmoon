@@ -178,6 +178,16 @@ function setPreviewStatus(message, isError = false) {
   els.previewStatus.classList.toggle("message--error", isError);
 }
 
+function updateLayerStatus() {
+  if (moonLayerMode === "optical") {
+    els.kmlStatus.textContent = "LROC";
+  } else if (moonLayerMode === "hybrid") {
+    els.kmlStatus.textContent = "LOLA & LROC";
+  } else if (moonLayerMode === "relief") {
+    els.kmlStatus.textContent = "LOLA";
+  }
+}
+
 function openExportPanel() {
   els.exportPanel.open = true;
 }
@@ -986,9 +996,6 @@ function prefetchCurrentTextureView() {
   const tiles = textureTilesForRectangle(rectangle);
   warmBackendTextureTiles(tiles);
   prefetchTextureImages(tiles.slice(0, PREFETCH_IMMEDIATE_IMAGE_LIMIT));
-  if (tiles.length > 0) {
-    els.kmlStatus.textContent = "LOLA";
-  }
 }
 
 function scheduleTexturePrefetch() {
@@ -1012,7 +1019,6 @@ function applyMoonLayerMode(mode) {
       reliefLayer.show = true;
       reliefLayer.alpha = HIDDEN_LAYER_ALPHA;
     }
-    els.kmlStatus.textContent = "LROC optical";
   } else if (mode === "relief") {
     els.layerRelief.classList.add("is-active");
     if (opticalLayer) {
@@ -1023,7 +1029,6 @@ function applyMoonLayerMode(mode) {
       reliefLayer.show = true;
       reliefLayer.alpha = 1;
     }
-    els.kmlStatus.textContent = "LOLA";
   } else {
     els.layerHybrid.classList.add("is-active");
     if (opticalLayer) {
@@ -1034,8 +1039,8 @@ function applyMoonLayerMode(mode) {
       reliefLayer.show = true;
       reliefLayer.alpha = 0.58;
     }
-    els.kmlStatus.textContent = "LOLA";
   }
+  updateLayerStatus();
   scheduleTexturePrefetch();
 }
 
@@ -1105,7 +1110,7 @@ async function loadPreviewOverlay() {
         rectangle: Cesium.Rectangle.fromDegrees(-180, -90, 180, 90),
       });
       viewer.imageryLayers.addImageryProvider(provider);
-      els.kmlStatus.textContent = "LOLA";
+      updateLayerStatus();
     } catch (fallbackError) {
       console.warn("LOLA JPG failed:", fallbackError);
       els.kmlStatus.textContent = "Cesium only";
