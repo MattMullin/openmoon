@@ -965,7 +965,7 @@ function prefetchCurrentTextureView() {
   warmBackendTextureTiles(tiles);
   prefetchTextureImages(tiles.slice(0, PREFETCH_IMMEDIATE_IMAGE_LIMIT));
   if (tiles.length > 0) {
-    els.kmlStatus.textContent = "LOLA eager";
+    els.kmlStatus.textContent = "LOLA";
   }
 }
 
@@ -1001,7 +1001,7 @@ function applyMoonLayerMode(mode) {
       reliefLayer.show = true;
       reliefLayer.alpha = 1;
     }
-    els.kmlStatus.textContent = "LOLA relief";
+    els.kmlStatus.textContent = "LOLA";
   } else {
     els.layerHybrid.classList.add("is-active");
     if (opticalLayer) {
@@ -1012,7 +1012,7 @@ function applyMoonLayerMode(mode) {
       reliefLayer.show = true;
       reliefLayer.alpha = 0.58;
     }
-    els.kmlStatus.textContent = "LROC + LOLA";
+    els.kmlStatus.textContent = "LOLA";
   }
   scheduleTexturePrefetch();
 }
@@ -1083,7 +1083,7 @@ async function loadPreviewOverlay() {
         rectangle: Cesium.Rectangle.fromDegrees(-180, -90, 180, 90),
       });
       viewer.imageryLayers.addImageryProvider(provider);
-      els.kmlStatus.textContent = "LOLA JPG";
+      els.kmlStatus.textContent = "LOLA";
     } catch (fallbackError) {
       console.warn("LOLA JPG failed:", fallbackError);
       els.kmlStatus.textContent = "Cesium only";

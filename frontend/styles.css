@@ -159,7 +159,8 @@ select {
 .mode-row,
 .layer-row,
 .landmark-row,
-.button-row {
+.selection-actions,
+.export-actions {
   display: grid;
   gap: 10px;
   margin-top: 14px;
@@ -170,13 +171,58 @@ select {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.button-row {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .landmark-row {
   grid-template-columns: 112px minmax(0, 1fr) 94px;
   align-items: end;
+}
+
+.selection-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.export-panel {
+  margin-top: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+.export-panel summary {
+  min-height: 42px;
+  padding: 11px 12px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 720;
+  list-style: none;
+}
+
+.export-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.export-panel summary::after {
+  content: "+";
+  float: right;
+  color: var(--accent-strong);
+  font-weight: 720;
+}
+
+.export-panel[open] summary {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.export-panel[open] summary::after {
+  content: "-";
+}
+
+.export-panel .settings-row,
+.export-panel .export-actions {
+  margin: 12px;
+}
+
+.export-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .scale-bar {
@@ -359,7 +405,8 @@ button.is-active {
   .mode-row,
   .layer-row,
   .landmark-row,
-  .button-row,
+  .selection-actions,
+  .export-actions,
   .preview-controls,
   .preview-actions {
     grid-template-columns: 1fr;

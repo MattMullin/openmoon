@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/cesium@1.119.0/Build/Cesium/Widgets/widgets.css"
     />
-    <link rel="stylesheet" href="./styles.css?v=gazetteer-scale-1" />
+    <link rel="stylesheet" href="./styles.css?v=ui-export-panel-1" />
   </head>
   <body>
     <main id="app">
@@ -50,18 +50,6 @@
           </div>
         </div>
 
-        <div class="mode-row" aria-label="Selection mode">
-          <button id="modeRectangle" type="button" class="is-active">Rectangle</button>
-          <button id="modeCircle" type="button">Circle</button>
-          <button id="modePolygon" type="button">Freeform</button>
-        </div>
-
-        <div class="layer-row" aria-label="Moon imagery layer">
-          <button id="layerOptical" type="button">Optical</button>
-          <button id="layerHybrid" type="button" class="is-active">Hybrid</button>
-          <button id="layerRelief" type="button">Relief</button>
-        </div>
-
         <div class="landmark-row" aria-label="Areas of interest">
           <label>
             <span>Category</span>
@@ -86,29 +74,48 @@
           <button id="toggleLandmarks" type="button" class="is-active">Marks</button>
         </div>
 
-        <div class="settings-row">
-          <label>
-            <span>Downsample</span>
-            <input id="downsample" type="number" min="1" max="512" step="1" value="16" />
-          </label>
-          <label>
-            <span>Z exaggeration</span>
-            <input id="zExaggeration" type="number" min="0.01" max="100" step="0.25" value="1" />
-          </label>
-          <label>
-            <span>Base thickness (m)</span>
-            <input id="baseThickness" type="number" min="0" max="100000" step="100" value="1500" />
-          </label>
+        <div class="mode-row" aria-label="Selection mode">
+          <button id="modeRectangle" type="button" class="is-active">Rectangle</button>
+          <button id="modeCircle" type="button">Circle</button>
+          <button id="modePolygon" type="button">Freeform</button>
         </div>
 
-        <div class="button-row">
+        <div class="layer-row" aria-label="Moon imagery layer">
+          <button id="layerOptical" type="button">Optical</button>
+          <button id="layerHybrid" type="button" class="is-active">Hybrid</button>
+          <button id="layerRelief" type="button">Relief</button>
+        </div>
+
+        <div class="selection-actions">
           <button id="resetView" type="button">Reset View</button>
-          <button id="toggleDemTiles" type="button">DEM Tiles</button>
           <button id="finishShape" type="button" disabled>Finish Shape</button>
           <button id="clearSelection" type="button">Clear Selection</button>
-          <button id="previewStl" type="button" disabled>Preview STL</button>
-          <button id="exportStl" type="button" class="primary" disabled>Export STL</button>
         </div>
+
+        <details class="export-panel">
+          <summary>Export 3D Data</summary>
+
+          <div class="settings-row">
+            <label>
+              <span>Downsample</span>
+              <input id="downsample" type="number" min="1" max="512" step="1" value="16" />
+            </label>
+            <label>
+              <span>Z exaggeration</span>
+              <input id="zExaggeration" type="number" min="0.01" max="100" step="0.25" value="1" />
+            </label>
+            <label>
+              <span>Base thickness (m)</span>
+              <input id="baseThickness" type="number" min="0" max="100000" step="100" value="1500" />
+            </label>
+          </div>
+
+          <div class="export-actions">
+            <button id="toggleDemTiles" type="button">DEM Tiles</button>
+            <button id="previewStl" type="button" disabled>Preview STL</button>
+            <button id="exportStl" type="button" class="primary" disabled>Export STL</button>
+          </div>
+        </details>
 
         <p id="message" class="message">Click two lunar surface points to define a rectangle.</p>
       </section>
@@ -163,6 +170,6 @@
         }
       }
     </script>
-    <script type="module" src="./app.js?v=gazetteer-scale-1"></script>
+    <script type="module" src="./app.js?v=ui-export-panel-1"></script>
   </body>
 </html>
