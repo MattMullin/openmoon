@@ -25,6 +25,8 @@ let demTilesVisible = false;
 let validationRun = 0;
 let previewOpen = false;
 let previewGeneration = 0;
+let previewInFlight = false;
+let previewRerunRequested = false;
 let previewBlob = null;
 let previewFilename = "open-moon-terrain-preview.stl";
 let previewScene = null;
@@ -1846,6 +1848,7 @@ function clearPreviewMesh() {
 
 function clearPreviewForSelectionChange() {
   previewGeneration += 1;
+  previewRerunRequested = false;
   previewBlob = null;
   clearTimeout(previewInputTimer);
   els.downloadPreviewStl.disabled = true;
@@ -1896,6 +1899,13 @@ function showPreviewBlob(blob) {
 }
 
 async function generatePreview() {
+  if (previewInFlight) {
+    previewGeneration += 1;
+    previewRerunRequested = true;
+    setPreviewStatus("Preview settings changed. Waiting for the current preview to finish...");
+    return;
+  }
+
   const payload = previewPayload();
   if (!payload) {
     setPreviewStatus("Finish a valid selection before previewing.", true);
@@ -1903,7 +1913,10 @@ async function generatePreview() {
   }
 
   const generation = ++previewGeneration;
+  previewInFlight = true;
+  previewRerunRequested = false;
   previewBlob = null;
+  els.refreshPreview.disabled = true;
   els.downloadPreviewStl.disabled = true;
   clearPreviewMesh();
   setPreviewStatus("Generating STL preview...");
@@ -1945,7 +1958,18 @@ async function generatePreview() {
       return;
     }
     els.downloadPreviewStl.disabled = true;
-    setPreviewStatus(error.message, true);
+    const message =
+      error instanceof TypeError && /fetch/i.test(error.message)
+        ? "Preview request lost connection to the backend. Try Refresh Preview; if it repeats, increase Downsample or select a smaller area."
+        : error.message;
+    setPreviewStatus(message, true);
+  } finally {
+    previewInFlight = false;
+    els.refreshPreview.disabled = false;
+    if (previewRerunRequested && previewOpen) {
+      previewRerunRequested = false;
+      generatePreview();
+    }
   }
 }
 
@@ -1964,6 +1988,8 @@ function openPreviewModal(autoGenerate = true) {
 
 function closePreviewModal() {
   previewOpen = false;
+  previewRerunRequested = false;
+  clearTimeout(previewInputTimer);
   els.previewModal.classList.remove("is-open");
   els.previewModal.setAttribute("aria-hidden", "true");
 }
@@ -1983,7 +2009,7 @@ let previewInputTimer = null;
 function schedulePreviewRegeneration() {
   syncMainInputsFromPreview();
   clearTimeout(previewInputTimer);
-  previewInputTimer = setTimeout(generatePreview, 450);
+  previewInputTimer = setTimeout(generatePreview, 800);
 }
 
 function previewStl() {
