@@ -152,6 +152,21 @@ function formatDegrees(value) {
   return Number.isFinite(value) ? value.toFixed(6) : "--";
 }
 
+function formatFileSize(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "--";
+  }
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1000 && unitIndex < units.length - 1) {
+    value /= 1000;
+    unitIndex += 1;
+  }
+  return unitIndex === 0 ? `${Math.round(value)} B` : `${value.toFixed(1)} ${units[unitIndex]}`;
+}
+
 function setMessage(message, isError = false) {
   els.message.textContent = message;
   els.message.classList.toggle("message--error", isError);
@@ -1770,7 +1785,6 @@ function syncPreviewInputsFromMain() {
 }
 
 function syncMainInputsFromPreview() {
-  els.downsample.value = els.previewDownsample.value;
   els.zExaggeration.value = els.previewZExaggeration.value;
   els.baseThickness.value = els.previewBaseThickness.value;
 }
@@ -1944,6 +1958,9 @@ async function generatePreview() {
       return;
     }
 
+    const previewDownsample = Number(response.headers.get("X-Open-Moon-Preview-Downsample"));
+    const previewTriangles = Number(response.headers.get("X-Open-Moon-Preview-Triangles"));
+    const previewBytes = Number(response.headers.get("X-Open-Moon-Preview-Bytes"));
     previewBlob = await response.blob();
     previewFilename = `open_moon_preview_${Date.now()}_base_${Math.round(payload.base_thickness)}.stl`;
     await showPreviewBlob(previewBlob);
@@ -1952,7 +1969,15 @@ async function generatePreview() {
       return;
     }
     els.downloadPreviewStl.disabled = false;
-    setPreviewStatus("Preview ready. Drag to orbit, scroll to zoom.");
+    const previewDetail =
+      Number.isFinite(previewDownsample) && previewDownsample !== payload.downsample
+        ? ` Preview auto-simplified to ${previewDownsample} for browser viewing.`
+        : "";
+    const sizeDetail =
+      Number.isFinite(previewTriangles) && Number.isFinite(previewBytes)
+        ? ` Preview mesh: ${previewTriangles.toLocaleString()} triangles, ~${formatFileSize(previewBytes)}.`
+        : "";
+    setPreviewStatus(`Preview ready. Drag to orbit, scroll to zoom.${previewDetail}${sizeDetail}`);
   } catch (error) {
     if (generation !== previewGeneration) {
       return;

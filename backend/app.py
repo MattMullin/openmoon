@@ -38,7 +38,7 @@ OPTICAL_TILE_CACHE_DIR = BACKEND_DIR / "optical_tile_cache"
 MOON_RADIUS_M = 1_737_400.0
 LOLA_PIXELS_PER_DEGREE = 1024
 MAX_TRIANGLES = 5_000_000
-MAX_PREVIEW_TRIANGLES = 500_000
+MAX_PREVIEW_TRIANGLES = 1_000_000
 
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 TILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -101,6 +101,7 @@ class ExportInfo(BaseModel):
     estimated_width: int
     estimated_height: int
     estimated_triangles: int
+    estimated_stl_bytes: int
     tiles: list[dict[str, object]]
 
 
@@ -628,6 +629,20 @@ def estimate_solid_triangles(height: int, width: int) -> int:
     return (top_cells * 4) + (edge_cells * 2)
 
 
+def estimate_binary_stl_bytes(triangles: int) -> int:
+    return 84 + (50 * triangles)
+
+
+def format_bytes(size: int) -> str:
+    units = ("B", "KB", "MB", "GB", "TB")
+    value = float(size)
+    for unit in units:
+        if value < 1000 or unit == units[-1]:
+            return f"{value:.1f} {unit}" if unit != "B" else f"{int(value)} B"
+        value /= 1000
+    return f"{value:.1f} TB"
+
+
 def unwrap_lon_to_reference(lon: float, reference: float) -> float:
     value = normalize_lon_360(lon)
     while value - reference > 180.0:
@@ -646,6 +661,7 @@ def export_request_info(request: ExportRequest) -> ExportInfo:
         request.downsample,
     )
     estimated_triangles = estimate_solid_triangles(estimated_height, estimated_width)
+    estimated_stl_bytes = estimate_binary_stl_bytes(estimated_triangles)
     tiles = find_intersecting_tiles(TILES, request.min_lat, request.max_lat, request.min_lon, request.max_lon)
     tile_payload = [
         {
@@ -663,7 +679,8 @@ def export_request_info(request: ExportRequest) -> ExportInfo:
         ok = False
     elif estimated_triangles > MAX_TRIANGLES:
         reason = (
-            f"Requested grid would produce about {estimated_triangles:,} triangles. "
+            f"Requested grid would produce about {estimated_triangles:,} triangles "
+            f"(~{format_bytes(estimated_stl_bytes)} binary STL). "
             "Increase downsample or select a smaller region."
         )
         ok = False
@@ -671,7 +688,10 @@ def export_request_info(request: ExportRequest) -> ExportInfo:
         reason = "No local LOLA DEM tiles intersect the selected bounds."
         ok = False
     else:
-        reason = f"Ready: {len(tiles)} local DEM tile(s), about {estimated_triangles:,} triangles."
+        reason = (
+            f"Ready: {len(tiles)} local DEM tile(s), about {estimated_triangles:,} triangles, "
+            f"~{format_bytes(estimated_stl_bytes)} binary STL."
+        )
         ok = True
 
     return ExportInfo(
@@ -681,6 +701,7 @@ def export_request_info(request: ExportRequest) -> ExportInfo:
         estimated_width=estimated_width,
         estimated_height=estimated_height,
         estimated_triangles=estimated_triangles,
+        estimated_stl_bytes=estimated_stl_bytes,
         tiles=tile_payload,
     )
 
@@ -1010,32 +1031,47 @@ def mesh_from_request(request: ExportRequest) -> trimesh.Trimesh:
     return build_mesh(height_grid, lons, lats, request.z_exaggeration, request.base_thickness)
 
 
+def estimate_triangles_for_downsample(request: ExportRequest, downsample: int) -> int:
+    intervals = longitude_intervals(request.min_lon, request.max_lon)
+    estimated_height, estimated_width = estimate_shape(
+        request.min_lat,
+        request.max_lat,
+        intervals,
+        downsample,
+    )
+    return estimate_solid_triangles(estimated_height, estimated_width)
+
+
+def preview_request_for_limit(request: ExportRequest) -> tuple[ExportRequest, int]:
+    downsample = request.downsample
+    estimated_triangles = estimate_triangles_for_downsample(request, downsample)
+
+    while estimated_triangles > MAX_PREVIEW_TRIANGLES and downsample < 2048:
+        scale = (estimated_triangles / MAX_PREVIEW_TRIANGLES) ** 0.5
+        downsample = min(2048, max(downsample + 1, ceil(downsample * scale)))
+        estimated_triangles = estimate_triangles_for_downsample(request, downsample)
+
+    return request.model_copy(update={"downsample": downsample}), estimated_triangles
+
+
 @app.post("/preview-stl")
 def preview_stl(request: ExportRequest) -> Response:
     try:
-        intervals = longitude_intervals(request.min_lon, request.max_lon)
-        estimated_height, estimated_width = estimate_shape(
-            request.min_lat,
-            request.max_lat,
-            intervals,
-            request.downsample,
-        )
-        estimated_triangles = estimate_solid_triangles(estimated_height, estimated_width)
-        if estimated_triangles > MAX_PREVIEW_TRIANGLES:
-            raise HTTPException(
-                status_code=413,
-                detail=(
-                    f"Preview would contain about {estimated_triangles:,} triangles. "
-                    "Increase Simplification in the preview, or select a smaller area. "
-                    "The final STL export can still use a higher-resolution setting."
-                ),
-            )
-
-        mesh = mesh_from_request(request)
+        preview_request, preview_triangles = preview_request_for_limit(request)
+        mesh = mesh_from_request(preview_request)
+        preview_triangles = int(len(mesh.faces))
         data = mesh.export(file_type="stl")
         if isinstance(data, str):
             data = data.encode("utf-8")
-        return Response(content=data, media_type="model/stl")
+        return Response(
+            content=data,
+            media_type="model/stl",
+            headers={
+                "X-Open-Moon-Preview-Downsample": str(preview_request.downsample),
+                "X-Open-Moon-Preview-Triangles": str(preview_triangles),
+                "X-Open-Moon-Preview-Bytes": str(len(data)),
+            },
+        )
     except HTTPException:
         raise
     except Exception as exc:
