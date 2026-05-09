@@ -842,6 +842,30 @@ def normalize_vector(vector: np.ndarray, fallback: np.ndarray) -> np.ndarray:
     return vector / magnitude
 
 
+def tangent_basis(center_vector: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    reference = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+    if abs(float(np.dot(center_vector, reference))) > 0.92:
+        reference = np.array([1.0, 0.0, 0.0], dtype=np.float64)
+
+    east = normalize_vector(np.cross(reference, center_vector), np.array([1.0, 0.0, 0.0], dtype=np.float64))
+    north = normalize_vector(np.cross(center_vector, east), np.array([0.0, 1.0, 0.0], dtype=np.float64))
+    return east, north
+
+
+def tangent_grid_from_vector(
+    lons: np.ndarray,
+    lats: np.ndarray,
+    center_vector: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    east, north = tangent_basis(center_vector)
+    lon_grid, lat_grid = np.meshgrid(lons, lats)
+    grid_vectors = unit_vectors_from_lon_lat(lon_grid, lat_grid)
+    grid_offsets = (grid_vectors - center_vector) * MOON_RADIUS_M
+    xv = np.tensordot(grid_offsets, east, axes=([-1], [0]))
+    yv = np.tensordot(grid_offsets, north, axes=([-1], [0]))
+    return xv, yv
+
+
 def tangent_projected_grid(
     lons: np.ndarray,
     lats: np.ndarray,
@@ -850,18 +874,8 @@ def tangent_projected_grid(
 ) -> tuple[np.ndarray, np.ndarray, list[tuple[float, float]]]:
     polygon_vectors = unit_vectors_from_lon_lat(np.array(polygon_lons), np.array(polygon_lats))
     center_vector = normalize_vector(np.sum(polygon_vectors, axis=0), polygon_vectors[0])
-    reference = np.array([0.0, 0.0, 1.0], dtype=np.float64)
-    if abs(float(np.dot(center_vector, reference))) > 0.92:
-        reference = np.array([1.0, 0.0, 0.0], dtype=np.float64)
-
-    east = normalize_vector(np.cross(reference, center_vector), np.array([1.0, 0.0, 0.0], dtype=np.float64))
-    north = normalize_vector(np.cross(center_vector, east), np.array([0.0, 1.0, 0.0], dtype=np.float64))
-
-    lon_grid, lat_grid = np.meshgrid(lons, lats)
-    grid_vectors = unit_vectors_from_lon_lat(lon_grid, lat_grid)
-    grid_offsets = (grid_vectors - center_vector) * MOON_RADIUS_M
-    xv = np.tensordot(grid_offsets, east, axes=([-1], [0]))
-    yv = np.tensordot(grid_offsets, north, axes=([-1], [0]))
+    east, north = tangent_basis(center_vector)
+    xv, yv = tangent_grid_from_vector(lons, lats, center_vector)
 
     polygon_offsets = (polygon_vectors - center_vector) * MOON_RADIUS_M
     polygon_xy = [
@@ -915,25 +929,61 @@ def apply_selection_mask(
     return masked
 
 
+def request_center_vector(request: ExportRequest, lons: np.ndarray, lats: np.ndarray) -> np.ndarray:
+    if request.selection_type == "circle":
+        assert request.circle_center_lat is not None
+        assert request.circle_center_lon is not None
+        return unit_vectors_from_lon_lat(
+            np.array([request.circle_center_lon], dtype=np.float64),
+            np.array([request.circle_center_lat], dtype=np.float64),
+        )[0]
+
+    if request.selection_type == "polygon" and request.polygon:
+        polygon_vectors = unit_vectors_from_lon_lat(
+            np.array([point.lon for point in request.polygon], dtype=np.float64),
+            np.array([point.lat for point in request.polygon], dtype=np.float64),
+        )
+        fallback_index = int(np.argmax(np.abs([point.lat for point in request.polygon])))
+        return normalize_vector(np.sum(polygon_vectors, axis=0), polygon_vectors[fallback_index])
+
+    center_lat = float((request.min_lat + request.max_lat) / 2.0)
+    center_lon = float((lons.min() + lons.max()) / 2.0)
+    return unit_vectors_from_lon_lat(
+        np.array([center_lon], dtype=np.float64),
+        np.array([center_lat], dtype=np.float64),
+    )[0]
+
+
+def should_use_tangent_mesh(request: ExportRequest, lons: np.ndarray) -> bool:
+    max_abs_lat = max(abs(request.min_lat), abs(request.max_lat))
+    lon_span = float(lons.max() - lons.min()) if lons.size else 0.0
+    return request.selection_type != "rectangle" or max_abs_lat >= 75.0 or lon_span >= 180.0
+
+
+def mesh_xy_grid(request: ExportRequest, lons: np.ndarray, lats: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    if should_use_tangent_mesh(request, lons):
+        center_vector = request_center_vector(request, lons, lats)
+        return tangent_grid_from_vector(lons, lats, center_vector)
+
+    lat0 = float((lats.min() + lats.max()) / 2.0)
+    lon0 = float((lons.min() + lons.max()) / 2.0)
+    return projected_grid(lons, lats, lat0, lon0)
+
+
 def build_mesh(
     height_grid: np.ndarray,
     lons: np.ndarray,
     lats: np.ndarray,
     z_exaggeration: float,
     base_thickness: float,
+    request: ExportRequest,
 ) -> trimesh.Trimesh:
     finite = np.isfinite(height_grid)
     if not np.any(finite):
         raise HTTPException(status_code=422, detail="Selected tiles produced no valid elevation samples.")
 
     z = (height_grid - np.nanmin(height_grid)) * z_exaggeration
-    lat0 = float((lats.min() + lats.max()) / 2.0)
-    lon0 = float((lons.min() + lons.max()) / 2.0)
-    meters_per_degree = MOON_RADIUS_M * pi / 180.0
-
-    xs = (lons - lon0) * meters_per_degree * cos(lat0 * pi / 180.0)
-    ys = (lats - lat0) * meters_per_degree
-    xv, yv = np.meshgrid(xs, ys)
+    xv, yv = mesh_xy_grid(request, lons, lats)
 
     top_vertex_ids = np.full(height_grid.shape, -1, dtype=np.int64)
     bottom_vertex_ids = np.full(height_grid.shape, -1, dtype=np.int64)
@@ -1031,7 +1081,7 @@ def mesh_from_request(request: ExportRequest) -> trimesh.Trimesh:
     tiles = find_intersecting_tiles(TILES, request.min_lat, request.max_lat, request.min_lon, request.max_lon)
     height_grid, lons, lats = read_selection(request, tiles)
     height_grid = apply_selection_mask(request, height_grid, lons, lats)
-    return build_mesh(height_grid, lons, lats, request.z_exaggeration, request.base_thickness)
+    return build_mesh(height_grid, lons, lats, request.z_exaggeration, request.base_thickness, request)
 
 
 def estimate_triangles_for_downsample(request: ExportRequest, downsample: int) -> int:

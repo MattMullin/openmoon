@@ -231,6 +231,21 @@ function circleFromDiameter(a, b) {
   };
 }
 
+function isPolarSelection(points) {
+  return points.some((point) => Math.abs(point.lat) >= POLAR_RECTANGLE_LATITUDE);
+}
+
+function fullLongitudeBounds(minLat, maxLat) {
+  return {
+    minLat,
+    maxLat,
+    minLon: -180,
+    maxLon: 180,
+    lolaMinLon: 0,
+    lolaMaxLon: 360,
+  };
+}
+
 function circleBoundsFromSelection(circle) {
   const radiusRadians = circle.radiusMeters / MOON_RADIUS_M;
   const radiusDegrees = Cesium.Math.toDegrees(radiusRadians);
@@ -239,15 +254,8 @@ function circleBoundsFromSelection(circle) {
   const latScale = Math.max(0.001, Math.abs(Math.cos(Cesium.Math.toRadians(circle.center.lat))));
   const lonDegrees = Math.min(180, radiusDegrees / latScale);
 
-  if (lonDegrees >= 179.999) {
-    return {
-      minLat,
-      maxLat,
-      minLon: -180,
-      maxLon: 180,
-      lolaMinLon: 0,
-      lolaMaxLon: 360,
-    };
+  if (lonDegrees >= 179.999 || Math.abs(minLat) >= POLAR_RECTANGLE_LATITUDE || Math.abs(maxLat) >= POLAR_RECTANGLE_LATITUDE) {
+    return fullLongitudeBounds(minLat, maxLat);
   }
 
   return calculateBounds([
@@ -1205,9 +1213,14 @@ function updateScaleBar() {
   els.scaleBar.style.display = "block";
 }
 
-function calculateBounds(points) {
+function calculateBounds(points, options = {}) {
   const lats = points.map((point) => point.lat);
   const lons = points.map((point) => point.lon);
+
+  if (options.forceFullLongitude) {
+    return fullLongitudeBounds(Math.min(...lats), Math.max(...lats));
+  }
+
   const normalized = lons.map(normalizeLon).sort((a, b) => a - b);
 
   let lolaMinLon = normalized[0] ?? 0;
@@ -1245,6 +1258,31 @@ function calculateBounds(points) {
     lolaMinLon,
     lolaMaxLon,
   };
+}
+
+function circleOutlinePoints(circle, steps = 128) {
+  const centerLat = Cesium.Math.toRadians(circle.center.lat);
+  const centerLon = Cesium.Math.toRadians(circle.center.lon);
+  const angularRadius = circle.radiusMeters / MOON_RADIUS_M;
+  const points = [];
+
+  for (let index = 0; index < steps; index += 1) {
+    const bearing = (Math.PI * 2 * index) / steps;
+    const lat = Math.asin(
+      Math.sin(centerLat) * Math.cos(angularRadius)
+        + Math.cos(centerLat) * Math.sin(angularRadius) * Math.cos(bearing),
+    );
+    const lon = centerLon + Math.atan2(
+      Math.sin(bearing) * Math.sin(angularRadius) * Math.cos(centerLat),
+      Math.cos(angularRadius) - Math.sin(centerLat) * Math.sin(lat),
+    );
+    points.push({
+      lat: Cesium.Math.toDegrees(lat),
+      lon: toDisplayLon(Cesium.Math.toDegrees(lon)),
+    });
+  }
+
+  return points;
 }
 
 function pointFromCartesian(cartesian) {
@@ -1396,6 +1434,8 @@ function drawSelection() {
   }
 
   if (selectionMode === "circle" && circleSelection) {
+    const circlePoints = circleOutlinePoints(circleSelection);
+    const circlePositions = circlePoints.map((point) => selectionPosition(point.lon, point.lat));
     selectionLineEntity = viewer.entities.add({
       name: "Circle diameter",
       polyline: {
@@ -1406,16 +1446,22 @@ function drawSelection() {
     });
     selectionShapeEntity = viewer.entities.add({
       name: "Circular export bounds",
-      position: selectionPosition(circleSelection.center.lon, circleSelection.center.lat),
-      ellipse: {
-        semiMajorAxis: circleSelection.radiusMeters,
-        semiMinorAxis: circleSelection.radiusMeters,
-        height: selectionHeight,
+      polygon: {
+        hierarchy: new Cesium.PolygonHierarchy(circlePositions),
+        perPositionHeight: true,
         material: Cesium.Color.CYAN.withAlpha(0.14),
         outline: true,
         outlineColor: Cesium.Color.CYAN,
       },
     });
+    markerEntities.push(viewer.entities.add({
+      name: "Circular export outline",
+      polyline: {
+        positions: [...circlePositions, circlePositions[0]],
+        width: 2,
+        material: Cesium.Color.CYAN,
+      },
+    }));
     return;
   }
 
@@ -1604,7 +1650,9 @@ function recomputeSelection(validate = false) {
   if (selectionMode === "rectangle") {
     if (selectedPoints.length === 2) {
       rectanglePolygon = localRectangleFromPoints(selectedPoints);
-      currentBounds = calculateBounds(rectanglePolygon || selectedPoints);
+      currentBounds = calculateBounds(rectanglePolygon || selectedPoints, {
+        forceFullLongitude: Boolean(rectanglePolygon) || isPolarSelection(selectedPoints),
+      });
     } else {
       rectanglePolygon = null;
       currentBounds = null;
@@ -1620,7 +1668,9 @@ function recomputeSelection(validate = false) {
     }
   } else {
     rectanglePolygon = null;
-    currentBounds = selectedPoints.length >= 3 ? calculateBounds(selectedPoints) : null;
+    currentBounds = selectedPoints.length >= 3
+      ? calculateBounds(selectedPoints, { forceFullLongitude: isPolarSelection(selectedPoints) })
+      : null;
     els.finishShape.disabled = selectedPoints.length < 3;
   }
 
@@ -1702,7 +1752,7 @@ function finishShape() {
   openExportPanel();
   clearPreviewForSelectionChange();
   polygonFinished = true;
-  currentBounds = calculateBounds(selectedPoints);
+  currentBounds = calculateBounds(selectedPoints, { forceFullLongitude: isPolarSelection(selectedPoints) });
   updateBoundsDisplay(currentBounds);
   drawSelection();
   validateSelection();
