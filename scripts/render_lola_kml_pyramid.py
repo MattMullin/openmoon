@@ -283,6 +283,62 @@ def write_legend(root: Path, min_height: float, max_height: float, style: str) -
     canvas.save(root / "legend.png")
 
 
+def synthetic_lunar_patch(size: int = 512) -> np.ndarray:
+    y, x = np.mgrid[0:size, 0:size].astype(np.float32)
+    nx = (x / size - 0.5) * 2.0
+    ny = (y / size - 0.5) * 2.0
+    terrain = 1800.0 * np.sin(nx * 3.1) + 1200.0 * np.cos(ny * 4.2) + 700.0 * np.sin((nx + ny) * 7.0)
+
+    craters = [
+        (-0.42, -0.22, 0.22, -3200.0),
+        (0.25, -0.12, 0.16, -4300.0),
+        (0.08, 0.34, 0.28, -2600.0),
+        (-0.18, 0.18, 0.08, -1800.0),
+        (0.43, 0.32, 0.07, -2100.0),
+    ]
+
+    for cx, cy, radius, depth in craters:
+        distance = np.sqrt((nx - cx) ** 2 + (ny - cy) ** 2)
+        bowl = np.clip(1.0 - distance / radius, 0.0, 1.0)
+        rim = np.exp(-((distance - radius) ** 2) / (2.0 * (radius * 0.13) ** 2))
+        terrain += depth * bowl**1.7
+        terrain += abs(depth) * 0.23 * rim
+
+    rng = np.random.default_rng(42)
+    terrain += rng.normal(0.0, 120.0, terrain.shape).astype(np.float32)
+    return terrain.astype(np.float32)
+
+
+def write_color_preview(path: Path, min_height: float, max_height: float) -> None:
+    patch = synthetic_lunar_patch()
+    panels = [
+        ("relief", min_height, max_height, "Default relief"),
+        ("relief", -5000.0, 5000.0, "Tighter +/-5 km"),
+        ("gray", min_height, max_height, "Gray relief"),
+    ]
+    swatch_height = 52
+    label_height = 34
+    width = patch.shape[1] * len(panels)
+    height = label_height + patch.shape[0] + swatch_height
+    canvas = Image.new("RGB", (width, height), "#101722")
+    draw = ImageDraw.Draw(canvas)
+
+    for index, (style, lo, hi, label) in enumerate(panels):
+        x0 = index * patch.shape[1]
+        image = colorize_dem(patch, lo, hi, style)
+        canvas.paste(image, (x0, label_height))
+        draw.text((x0 + 14, 10), f"{label} ({lo:,.0f}..{hi:,.0f} m)", fill=(235, 242, 255))
+
+        gradient = np.linspace(lo, hi, patch.shape[1], dtype=np.float32)[None, :]
+        ramp = colorize_dem(np.repeat(gradient, swatch_height, axis=0), lo, hi, style)
+        canvas.paste(ramp, (x0, label_height + patch.shape[0]))
+        draw.text((x0 + 8, height - 22), f"{lo:,.0f} m", fill=(245, 245, 245))
+        draw.text((x0 + patch.shape[1] - 74, height - 22), f"{hi:,.0f} m", fill=(245, 245, 245))
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    canvas.save(path)
+
+
 def render_one_tile(
     tiles: list[Tile],
     root: Path,
@@ -367,6 +423,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--workers", type=int, default=max(1, min(4, os.cpu_count() or 1)))
     parser.add_argument("--skip-existing", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--preview-colors", type=Path, help="Write a synthetic color-ramp preview PNG and exit.")
     return parser.parse_args()
 
 
@@ -380,6 +437,11 @@ def main() -> None:
     tiles = build_tile_index(args.dem_dir)
     if not tiles:
         raise SystemExit(f"No ldem_1024 JP2 files found in {args.dem_dir}.")
+
+    if args.preview_colors:
+        write_color_preview(args.preview_colors, args.min_height, args.max_height)
+        print(f"Wrote color preview: {args.preview_colors}")
+        return
 
     root = args.output_dir / "tiles_banded_stereo"
     coords = iter_tile_coords(args.max_level)
