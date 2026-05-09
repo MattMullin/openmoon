@@ -664,6 +664,10 @@ function landmarkMatchesCategory(landmark, category) {
     );
   }
 
+  if (category === "Crater") {
+    return landmark.category === "Crater" || /\bcrater\b/i.test(landmark.type || "");
+  }
+
   return landmark.category === category;
 }
 
