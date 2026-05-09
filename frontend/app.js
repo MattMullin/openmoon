@@ -1985,7 +1985,7 @@ async function generatePreview() {
     els.downloadPreviewStl.disabled = true;
     const message =
       error instanceof TypeError && /fetch/i.test(error.message)
-        ? "Preview request lost connection to the backend. Increase Simplification in this preview, or select a smaller area. The final STL export can still use higher resolution."
+        ? "Preview request lost connection while receiving the preview mesh. Increase Preview simplification and refresh; the final STL export keeps the full export settings."
         : error.message;
     setPreviewStatus(message, true);
   } finally {

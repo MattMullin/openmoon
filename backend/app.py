@@ -20,6 +20,7 @@ from PIL import Image
 from pydantic import BaseModel, Field, model_validator
 from rasterio.enums import Resampling
 from rasterio.windows import from_bounds
+from starlette.background import BackgroundTask
 
 from tile_index import Tile, build_tile_index, find_intersecting_tiles, longitude_intervals
 
@@ -31,16 +32,18 @@ KML_DIR = PROJECT_DIR / "Lunar_DEM_LOLA_shaded_relief_1.52GB"
 OPTICAL_DIR = PROJECT_DIR / "LRO LROC"
 TOKEN_PATH = PROJECT_DIR / "cesium_key.txt"
 EXPORT_DIR = BACKEND_DIR / "exports"
+PREVIEW_DIR = BACKEND_DIR / "preview_cache"
 TILE_CACHE_DIR = BACKEND_DIR / "tile_cache"
 DEM_TEXTURE_CACHE_DIR = BACKEND_DIR / "dem_texture_cache"
 OPTICAL_TILE_CACHE_DIR = BACKEND_DIR / "optical_tile_cache"
 
 MOON_RADIUS_M = 1_737_400.0
 LOLA_PIXELS_PER_DEGREE = 1024
-MAX_TRIANGLES = 5_000_000
-MAX_PREVIEW_TRIANGLES = 1_000_000
+MAX_TRIANGLES = 20_000_000
+MAX_PREVIEW_TRIANGLES = 250_000
 
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
 TILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 DEM_TEXTURE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 OPTICAL_TILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -1055,22 +1058,25 @@ def preview_request_for_limit(request: ExportRequest) -> tuple[ExportRequest, in
 
 
 @app.post("/preview-stl")
-def preview_stl(request: ExportRequest) -> Response:
+def preview_stl(request: ExportRequest) -> FileResponse:
     try:
         preview_request, preview_triangles = preview_request_for_limit(request)
         mesh = mesh_from_request(preview_request)
         preview_triangles = int(len(mesh.faces))
-        data = mesh.export(file_type="stl")
-        if isinstance(data, str):
-            data = data.encode("utf-8")
-        return Response(
-            content=data,
+        filename = f"open_moon_preview_{uuid4().hex}.stl"
+        path = PREVIEW_DIR / filename
+        mesh.export(path)
+        preview_bytes = path.stat().st_size
+        return FileResponse(
+            path,
             media_type="model/stl",
+            filename=filename,
             headers={
                 "X-Open-Moon-Preview-Downsample": str(preview_request.downsample),
                 "X-Open-Moon-Preview-Triangles": str(preview_triangles),
-                "X-Open-Moon-Preview-Bytes": str(len(data)),
+                "X-Open-Moon-Preview-Bytes": str(preview_bytes),
             },
+            background=BackgroundTask(path.unlink, missing_ok=True),
         )
     except HTTPException:
         raise

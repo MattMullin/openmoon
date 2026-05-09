@@ -1,5 +1,6 @@
 cesium_key.txt
 backend/exports/
+backend/preview_cache/
 backend/tile_cache/
 backend/dem_texture_cache/
 backend/optical_tile_cache/
