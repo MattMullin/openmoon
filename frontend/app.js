@@ -96,6 +96,7 @@ const els = {
   landmarkCategory: document.getElementById("landmarkCategory"),
   landmarkSelect: document.getElementById("landmarkSelect"),
   toggleLandmarks: document.getElementById("toggleLandmarks"),
+  exportPanel: document.getElementById("exportPanel"),
   scaleBar: document.getElementById("scaleBar"),
   scaleBarLabel: document.getElementById("scaleBarLabel"),
   scaleBarLine: document.getElementById("scaleBarLine"),
@@ -175,6 +176,10 @@ function setMessage(message, isError = false) {
 function setPreviewStatus(message, isError = false) {
   els.previewStatus.textContent = message;
   els.previewStatus.classList.toggle("message--error", isError);
+}
+
+function openExportPanel() {
+  els.exportPanel.open = true;
 }
 
 function angularDistanceRadians(a, b) {
@@ -1640,6 +1645,8 @@ function handleMapClick(movement) {
     return;
   }
 
+  openExportPanel();
+
   if (selectionMode === "rectangle") {
     if (selectedPoints.length >= 2) {
       clearSelection("Started a new rectangle.");
@@ -1687,6 +1694,7 @@ function finishShape() {
     return;
   }
 
+  openExportPanel();
   clearPreviewForSelectionChange();
   polygonFinished = true;
   currentBounds = calculateBounds(selectedPoints);
@@ -1711,6 +1719,7 @@ function setSelectionMode(mode) {
 }
 
 function beginPointDrag(index) {
+  openExportPanel();
   draggingPointIndex = index;
   suppressNextClick = true;
   viewer.scene.screenSpaceCameraController.enableRotate = false;
@@ -1740,6 +1749,7 @@ function handlePointerDown(movement) {
   }
 
   if (selectionMode === "circle" && selectedPoints.length === 1) {
+    openExportPanel();
     const point = pickMoonPosition(movement.position);
     if (!point) {
       return;
