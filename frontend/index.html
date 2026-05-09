@@ -74,26 +74,33 @@
           <button id="toggleLandmarks" type="button" class="is-active">Marks</button>
         </div>
 
-        <div class="mode-row" aria-label="Selection mode">
-          <button id="modeRectangle" type="button" class="is-active">Rectangle</button>
-          <button id="modeCircle" type="button">Circle</button>
-          <button id="modePolygon" type="button">Freeform</button>
-        </div>
-
         <div class="layer-row" aria-label="Moon imagery layer">
           <button id="layerOptical" type="button">Optical</button>
           <button id="layerHybrid" type="button" class="is-active">Hybrid</button>
           <button id="layerRelief" type="button">Relief</button>
         </div>
 
-        <div class="selection-actions">
+        <div class="view-actions">
           <button id="resetView" type="button">Reset View</button>
-          <button id="finishShape" type="button" disabled>Finish Shape</button>
-          <button id="clearSelection" type="button">Clear Selection</button>
         </div>
 
         <details class="export-panel">
           <summary>Export 3D Data</summary>
+
+          <div class="panel-subheading">Selection Area</div>
+
+          <div class="mode-row" aria-label="Selection area shape">
+            <button id="modeRectangle" type="button" class="is-active">Rectangle Area</button>
+            <button id="modeCircle" type="button">Circle Area</button>
+            <button id="modePolygon" type="button">Freeform Area</button>
+          </div>
+
+          <div class="selection-actions">
+            <button id="finishShape" type="button" disabled>Finish Shape</button>
+            <button id="clearSelection" type="button">Clear Selection</button>
+          </div>
+
+          <div class="panel-subheading">STL Settings</div>
 
           <div class="settings-row">
             <label>

@@ -159,6 +159,7 @@ select {
 .mode-row,
 .layer-row,
 .landmark-row,
+.view-actions,
 .selection-actions,
 .export-actions {
   display: grid;
@@ -176,8 +177,12 @@ select {
   align-items: end;
 }
 
+.view-actions {
+  grid-template-columns: 1fr;
+}
+
 .selection-actions {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .export-panel {
@@ -214,6 +219,20 @@ select {
 
 .export-panel[open] summary::after {
   content: "-";
+}
+
+.panel-subheading {
+  margin: 12px 12px 0;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 720;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.export-panel .mode-row,
+.export-panel .selection-actions {
+  margin: 8px 12px 12px;
 }
 
 .export-panel .settings-row,
