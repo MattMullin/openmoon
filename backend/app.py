@@ -68,6 +68,12 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=[
+        "Content-Disposition",
+        "X-Open-Moon-Preview-Downsample",
+        "X-Open-Moon-Preview-Triangles",
+        "X-Open-Moon-Preview-Bytes",
+    ],
 )
 
 if KML_DIR.exists():

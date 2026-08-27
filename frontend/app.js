@@ -52,6 +52,7 @@ const PREFETCH_DEBOUNCE_MS = 260;
 const WHEEL_ZOOM_FRACTION = 0.035;
 const WHEEL_ZOOM_DAMPING = 0.82;
 const POLAR_RECTANGLE_LATITUDE = 84;
+const POLAR_FULL_LONGITUDE_LATITUDE = 89.5;
 const HIDDEN_LAYER_ALPHA = 0.001;
 const texturePrefetchCache = new Set();
 const textureWarmRequestCache = new Set();
@@ -234,8 +235,17 @@ function circleFromDiameter(a, b) {
   };
 }
 
-function isPolarSelection(points) {
-  return points.some((point) => Math.abs(point.lat) >= POLAR_RECTANGLE_LATITUDE);
+function spansPole(minLat, maxLat) {
+  return minLat <= -89.999 || maxLat >= 89.999;
+}
+
+function needsFullLongitudeRead(points) {
+  if (!points.length) {
+    return false;
+  }
+  const lats = points.map((point) => point.lat);
+  return spansPole(Math.min(...lats), Math.max(...lats))
+    || points.some((point) => Math.abs(point.lat) >= POLAR_FULL_LONGITUDE_LATITUDE);
 }
 
 function fullLongitudeBounds(minLat, maxLat) {
@@ -257,7 +267,7 @@ function circleBoundsFromSelection(circle) {
   const latScale = Math.max(0.001, Math.abs(Math.cos(Cesium.Math.toRadians(circle.center.lat))));
   const lonDegrees = Math.min(180, radiusDegrees / latScale);
 
-  if (lonDegrees >= 179.999 || Math.abs(minLat) >= POLAR_RECTANGLE_LATITUDE || Math.abs(maxLat) >= POLAR_RECTANGLE_LATITUDE) {
+  if (lonDegrees >= 179.999 || spansPole(minLat, maxLat)) {
     return fullLongitudeBounds(minLat, maxLat);
   }
 
@@ -1655,7 +1665,7 @@ function recomputeSelection(validate = false) {
     if (selectedPoints.length === 2) {
       rectanglePolygon = localRectangleFromPoints(selectedPoints);
       currentBounds = calculateBounds(rectanglePolygon || selectedPoints, {
-        forceFullLongitude: Boolean(rectanglePolygon) || isPolarSelection(selectedPoints),
+        forceFullLongitude: needsFullLongitudeRead(rectanglePolygon || selectedPoints),
       });
     } else {
       rectanglePolygon = null;
@@ -1673,7 +1683,7 @@ function recomputeSelection(validate = false) {
   } else {
     rectanglePolygon = null;
     currentBounds = selectedPoints.length >= 3
-      ? calculateBounds(selectedPoints, { forceFullLongitude: isPolarSelection(selectedPoints) })
+      ? calculateBounds(selectedPoints, { forceFullLongitude: needsFullLongitudeRead(selectedPoints) })
       : null;
     els.finishShape.disabled = selectedPoints.length < 3;
   }
@@ -1756,7 +1766,7 @@ function finishShape() {
   openExportPanel();
   clearPreviewForSelectionChange();
   polygonFinished = true;
-  currentBounds = calculateBounds(selectedPoints, { forceFullLongitude: isPolarSelection(selectedPoints) });
+  currentBounds = calculateBounds(selectedPoints, { forceFullLongitude: needsFullLongitudeRead(selectedPoints) });
   updateBoundsDisplay(currentBounds);
   drawSelection();
   validateSelection();
@@ -1847,8 +1857,17 @@ function parseFilename(response) {
   return match ? match[1] : "open-moon-terrain.stl";
 }
 
+function optionalHeaderNumber(response, headerName) {
+  const value = response.headers.get(headerName);
+  if (value === null || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function syncPreviewInputsFromMain() {
-  els.previewDownsample.value = String(Math.max(Number(els.downsample.value || 16), 48));
+  els.previewDownsample.value = String(Math.max(Number(els.downsample.value || 16), 16));
   els.previewZExaggeration.value = els.zExaggeration.value;
   els.previewBaseThickness.value = els.baseThickness.value;
   els.previewTargetSizeMm.value = els.targetSizeMm.value;
@@ -2030,9 +2049,9 @@ async function generatePreview() {
       return;
     }
 
-    const previewDownsample = Number(response.headers.get("X-Open-Moon-Preview-Downsample"));
-    const previewTriangles = Number(response.headers.get("X-Open-Moon-Preview-Triangles"));
-    const previewBytes = Number(response.headers.get("X-Open-Moon-Preview-Bytes"));
+    const previewDownsample = optionalHeaderNumber(response, "X-Open-Moon-Preview-Downsample");
+    const previewTriangles = optionalHeaderNumber(response, "X-Open-Moon-Preview-Triangles");
+    const previewBytes = optionalHeaderNumber(response, "X-Open-Moon-Preview-Bytes");
     previewBlob = await response.blob();
     previewFilename = `open_moon_preview_${Date.now()}_${Math.round(payload.target_size_mm)}mm_base_${Math.round(payload.base_thickness)}.stl`;
     await showPreviewBlob(previewBlob);
@@ -2042,11 +2061,11 @@ async function generatePreview() {
     }
     els.downloadPreviewStl.disabled = false;
     const previewDetail =
-      Number.isFinite(previewDownsample) && previewDownsample !== payload.downsample
+      previewDownsample !== null && previewDownsample !== payload.downsample
         ? ` Preview auto-simplified to ${previewDownsample} for browser viewing.`
         : "";
     const sizeDetail =
-      Number.isFinite(previewTriangles) && Number.isFinite(previewBytes)
+      previewTriangles !== null && previewBytes !== null
         ? ` Preview mesh: ${previewTriangles.toLocaleString()} triangles, ~${formatFileSize(previewBytes)}.`
         : "";
     setPreviewStatus(`Preview ready. Drag to orbit, scroll to zoom.${previewDetail}${sizeDetail}`);
